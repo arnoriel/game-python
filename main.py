@@ -11,7 +11,20 @@ GRAVITY = 0.6
 JUMP_FORCE = -12
 MAX_JUMPS = 2
 
-screen = pygame.display.set_mode((WIDTH, HEIGHT))
+DISPLAY_MODES = ["Windowed", "Fullscreen", "Borderless"]
+current_display_mode = 0  # 0: Windowed
+
+def apply_display_mode(index):
+    global screen
+    mode = DISPLAY_MODES[index]
+    if mode == "Fullscreen":
+        screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.FULLSCREEN)
+    elif mode == "Borderless":
+        screen = pygame.display.set_mode((WIDTH, HEIGHT), pygame.NOFRAME)
+    else:
+        screen = pygame.display.set_mode((WIDTH, HEIGHT))
+
+apply_display_mode(current_display_mode)
 pygame.display.set_caption("Game Python")
 clock = pygame.time.Clock()
 
@@ -72,25 +85,34 @@ def draw_menu():
     pygame.draw.rect(screen, BROWN, (0, GROUND_Y, WIDTH, HEIGHT - GROUND_Y))
     pygame.draw.rect(screen, GRASS_GREEN, (0, GROUND_Y - 5, WIDTH, 5))
     player.draw(screen)
-    play_btn = draw_text(screen, "Mainkan", 40, GREEN, WIDTH//2, 250)
-    exit_btn = draw_text(screen, "Keluar", 40, RED, WIDTH//2, 320)
-    draw_text(screen, "Game Python", 60, BLACK, WIDTH//2, 100)
-    draw_text(screen, "Kontrol: arah kanan dan kiri untuk gerak, Spasi untuk lompat", 30, BLACK, WIDTH//2, 400)
-    draw_text(screen, "Tekan 'P' untuk pause, 'R' untuk resume", 25, BLACK, WIDTH//2, 440)
-    return play_btn, exit_btn
+    play_btn = draw_text(screen, "Mainkan", 40, GREEN, WIDTH // 2, 250)
+    settings_btn = draw_text(screen, "Pengaturan", 40, BLUE, WIDTH // 2, 300)
+    exit_btn = draw_text(screen, "Keluar", 40, RED, WIDTH // 2, 350)
+    draw_text(screen, "Game Python", 60, BLACK, WIDTH // 2, 100)
+    draw_text(screen, "Kontrol: arah kanan/kiri, Spasi lompat, P pause", 30, BLACK, WIDTH // 2, 420)
+    return play_btn, settings_btn, exit_btn
+
+def draw_settings():
+    draw_background(move=False)
+    pygame.draw.rect(screen, BROWN, (0, GROUND_Y, WIDTH, HEIGHT - GROUND_Y))
+    pygame.draw.rect(screen, GRASS_GREEN, (0, GROUND_Y - 5, WIDTH, 5))
+    draw_text(screen, "Pengaturan", 60, BLACK, WIDTH // 2, 100)
+    mode_btn = draw_text(screen, f"Mode Tampilan: {DISPLAY_MODES[current_display_mode]}", 40, BLACK, WIDTH // 2, 250)
+    back_btn = draw_text(screen, "Kembali", 40, RED, WIDTH // 2, 320)
+    return mode_btn, back_btn
 
 def draw_game_over():
     global high_score
     draw_background()
     pygame.draw.rect(screen, BROWN, (0, GROUND_Y, WIDTH, HEIGHT - GROUND_Y))
     pygame.draw.rect(screen, GRASS_GREEN, (0, GROUND_Y - 5, WIDTH, 5))
-    draw_text(screen, "GAME OVER", 70, RED, WIDTH//2, 130)
-    draw_text(screen, f"Total Coin: {player.score}", 40, BLACK, WIDTH//2, 200)
+    draw_text(screen, "GAME OVER", 70, RED, WIDTH // 2, 130)
+    draw_text(screen, f"Total Coin: {player.score}", 40, BLACK, WIDTH // 2, 200)
     if player.score > high_score:
         high_score = player.score
-    draw_text(screen, f"Highscore: {high_score}", 35, BLACK, WIDTH//2, 240)
-    retry_btn = draw_text(screen, "Coba Lagi", 40, GREEN, WIDTH//2, 310)
-    menu_btn = draw_text(screen, "Kembali ke Menu", 40, BLUE, WIDTH//2, 360)
+    draw_text(screen, f"Highscore: {high_score}", 35, BLACK, WIDTH // 2, 240)
+    retry_btn = draw_text(screen, "Coba Lagi", 40, GREEN, WIDTH // 2, 310)
+    menu_btn = draw_text(screen, "Kembali ke Menu", 40, BLUE, WIDTH // 2, 360)
     return retry_btn, menu_btn
 
 class Player:
@@ -163,7 +185,6 @@ class Player:
 class Coin:
     def __init__(self, x, y):
         self.rect = pygame.Rect(x, y, 20, 20)
-
     def draw(self, surface):
         pygame.draw.circle(surface, GOLD, self.rect.center, 10)
 
@@ -204,6 +225,7 @@ while running:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             running = False
+
         if game_state == "menu":
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_pos = pygame.mouse.get_pos()
@@ -212,11 +234,22 @@ while running:
                     platforms = [pygame.Rect(300, 420, 100, 20), pygame.Rect(600, 370, 100, 20)]
                     coins = []
                     enemies = []
-                    coin_spawn_tracker = set()
                     trees = []
                     game_state = "play"
+                elif settings_button.collidepoint(mouse_pos):
+                    game_state = "settings"
                 elif exit_button.collidepoint(mouse_pos):
                     running = False
+
+        elif game_state == "settings":
+            if event.type == pygame.MOUSEBUTTONDOWN:
+                mouse_pos = pygame.mouse.get_pos()
+                if mode_button.collidepoint(mouse_pos):
+                    current_display_mode = (current_display_mode + 1) % len(DISPLAY_MODES)
+                    apply_display_mode(current_display_mode)
+                elif back_button.collidepoint(mouse_pos):
+                    game_state = "menu"
+
         elif game_state == "game_over":
             if event.type == pygame.MOUSEBUTTONDOWN:
                 mouse_pos = pygame.mouse.get_pos()
@@ -225,21 +258,21 @@ while running:
                     platforms = [pygame.Rect(300, 420, 100, 20), pygame.Rect(600, 370, 100, 20)]
                     coins = []
                     enemies = []
-                    coin_spawn_tracker = set()
                     trees = []
                     game_state = "play"
                 elif menu_button.collidepoint(mouse_pos):
                     game_state = "menu"
 
     if game_state == "menu":
-        play_button, exit_button = draw_menu()
+        play_button, settings_button, exit_button = draw_menu()
+    elif game_state == "settings":
+        mode_button, back_button = draw_settings()
     elif game_state == "play":
         keys = pygame.key.get_pressed()
         if keys[pygame.K_p]:
             paused = True
         if keys[pygame.K_r]:
             paused = False
-
         if paused:
             draw_text(screen, "PAUSED", 70, RED, WIDTH // 2, HEIGHT // 2)
             pygame.display.flip()
