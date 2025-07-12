@@ -1,6 +1,7 @@
 import pygame
 import random
 import sys
+import time
 
 pygame.init()
 
@@ -12,7 +13,7 @@ JUMP_FORCE = -12
 MAX_JUMPS = 2
 
 DISPLAY_MODES = ["Windowed", "Fullscreen", "Borderless"]
-current_display_mode = 0  # 0: Windowed
+current_display_mode = 0
 
 def apply_display_mode(index):
     global screen
@@ -47,6 +48,14 @@ LEAF_GREEN = (34, 139, 34)
 game_state = "menu"
 paused = False
 high_score = 0
+
+# Combo system variables
+combo_ranks = ["D Dope", "C Crazy", "B Badass", "A Awesome", "S Stylish", "SS Super Skill", "SSS Smokin Sexy Style"]
+combo_rank_index = 0
+combo_count = 0
+last_kill_time = None  # Initially None to prevent display before first kill
+COMBO_DECAY_TIME = 5  # Seconds before rank decays
+COMBO_D_DISPLAY_DURATION = 5  # Seconds to display D rank
 
 clouds = [[random.randint(0, WIDTH), random.randint(50, 150)] for _ in range(5)]
 trees = []
@@ -88,7 +97,7 @@ def draw_menu():
     play_btn = draw_text(screen, "Mainkan", 40, GREEN, WIDTH // 2, 250)
     settings_btn = draw_text(screen, "Pengaturan", 40, BLUE, WIDTH // 2, 300)
     exit_btn = draw_text(screen, "Keluar", 40, RED, WIDTH // 2, 350)
-    draw_text(screen, "Game Python", 60, BLACK, WIDTH // 2, 100)
+    draw_text(screen, "Game Python: Dilarang Skill Issue Edition", 30, BLACK, WIDTH // 2, 100)
     draw_text(screen, "Kontrol: arah kanan/kiri, Spasi lompat, P pause", 30, BLACK, WIDTH // 2, 420)
     return play_btn, settings_btn, exit_btn
 
@@ -106,7 +115,7 @@ def draw_game_over():
     draw_background()
     pygame.draw.rect(screen, BROWN, (0, GROUND_Y, WIDTH, HEIGHT - GROUND_Y))
     pygame.draw.rect(screen, GRASS_GREEN, (0, GROUND_Y - 5, WIDTH, 5))
-    draw_text(screen, "GAME OVER", 70, RED, WIDTH // 2, 130)
+    draw_text(screen, "SKILL ISSUE", 70, RED, WIDTH // 2, 130)
     draw_text(screen, f"Total Coin: {player.score}", 40, BLACK, WIDTH // 2, 200)
     if player.score > high_score:
         high_score = player.score
@@ -114,6 +123,12 @@ def draw_game_over():
     retry_btn = draw_text(screen, "Coba Lagi", 40, GREEN, WIDTH // 2, 310)
     menu_btn = draw_text(screen, "Kembali ke Menu", 40, BLUE, WIDTH // 2, 360)
     return retry_btn, menu_btn
+
+def draw_combo_popup(player):
+    if last_kill_time is not None and (combo_rank_index > 0 or (combo_rank_index == 0 and time.time() - last_kill_time < COMBO_D_DISPLAY_DURATION)):
+        # Draw combo rank text above player
+        draw_text(screen, combo_ranks[combo_rank_index], 40, GOLD, 
+                 player.rect.centerx, player.rect.top - 20)
 
 class Player:
     def __init__(self):
@@ -235,6 +250,9 @@ while running:
                     coins = []
                     enemies = []
                     trees = []
+                    combo_count = 0
+                    combo_rank_index = 0
+                    last_kill_time = None  # Reset to None
                     game_state = "play"
                 elif settings_button.collidepoint(mouse_pos):
                     game_state = "settings"
@@ -259,6 +277,9 @@ while running:
                     coins = []
                     enemies = []
                     trees = []
+                    combo_count = 0
+                    combo_rank_index = 0
+                    last_kill_time = None  # Reset to None
                     game_state = "play"
                 elif menu_button.collidepoint(mouse_pos):
                     game_state = "menu"
@@ -307,6 +328,12 @@ while running:
             else:
                 coin.draw(screen)
 
+        # Combo rank decay logic
+        current_time = time.time()
+        if last_kill_time is not None and current_time - last_kill_time > COMBO_DECAY_TIME and combo_rank_index > 0:
+            combo_rank_index -= 1
+            last_kill_time = current_time
+
         for enemy in enemies[:]:
             enemy.rect.x -= 3
             enemy.update()
@@ -317,6 +344,10 @@ while running:
                 if player.vel_y > 0 and not enemy.is_dead:
                     enemy.is_dead = True
                     player.vel_y = JUMP_FORCE / 1.5
+                    combo_count += 1
+                    last_kill_time = time.time()  # Set last_kill_time on first kill
+                    if combo_count % 2 == 0:  # Every 2 kills
+                        combo_rank_index = min(combo_rank_index + 1, len(combo_ranks) - 1)
                 elif not enemy.is_dead:
                     game_state = "game_over"
             enemy.draw(screen)
@@ -330,6 +361,8 @@ while running:
 
         score_text = pygame.font.SysFont(None, 30).render(f"Coins: {player.score}", True, BLACK)
         screen.blit(score_text, (10, 10))
+
+        draw_combo_popup(player)
 
     elif game_state == "game_over":
         retry_button, menu_button = draw_game_over()
